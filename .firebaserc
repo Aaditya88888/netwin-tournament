@@ -1,0 +1,29 @@
+{
+  "projects": {
+    "default": "netwin-tournament"
+  },
+  "targets": {
+    "netwin-tournament": {
+      "hosting": {
+        "admin-app": [
+          "netwin-tournament-admin"
+        ]
+      }
+    }
+  },
+  "etags": {},
+  "functions": {
+    "api": {
+      "runtime": "nodejs20",
+      "memory": "256MB",
+      "region": "us-central1",
+      "gen": 2
+    },
+    "createUser": {
+      "runtime": "nodejs20",
+      "memory": "256MB",
+      "region": "us-central1",
+      "gen": 2
+    }
+  }
+}

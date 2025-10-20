@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logo Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        .logo-test {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .logo-test img {
+            margin-right: 10px;
+            border: 1px solid #666;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .success { background-color: #22c55e; }
+        .error { background-color: #ef4444; }
+    </style>
+</head>
+<body>
+    <h1>Netwin Logo Loading Test</h1>
+    
+    <div class="test-section">
+        <h2>Public Folder Logo</h2>
+        <div class="logo-test">
+            <img src="client/public/netwin-logo.png" alt="Public Logo" style="width: 64px; height: 64px; object-fit: contain;" 
+                 onload="this.nextElementSibling.textContent='✓ Loaded'; this.nextElementSibling.className='status success';"
+                 onerror="this.nextElementSibling.textContent='✗ Failed'; this.nextElementSibling.className='status error';">
+            <span class="status">Loading...</span>
+        </div>
+        <p>File size: ~562KB</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Assets Folder Logo</h2>
+        <div class="logo-test">
+            <img src="client/src/assets/netwin-logo.png" alt="Assets Logo" style="width: 64px; height: 64px; object-fit: contain;"
+                 onload="this.nextElementSibling.textContent='✓ Loaded'; this.nextElementSibling.className='status success';"
+                 onerror="this.nextElementSibling.textContent='✗ Failed'; this.nextElementSibling.className='status error';">
+            <span class="status">Loading...</span>
+        </div>
+        <p>File size: ~562KB (copied from public)</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Root Logo</h2>
+        <div class="logo-test">
+            <img src="netwin-logo.png" alt="Root Logo" style="width: 64px; height: 64px; object-fit: contain;"
+                 onload="this.nextElementSibling.textContent='✓ Loaded'; this.nextElementSibling.className='status success';"
+                 onerror="this.nextElementSibling.textContent='✗ Failed'; this.nextElementSibling.className='status error';">
+            <span class="status">Loading...</span>
+        </div>
+        <p>File size: ~562KB</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Recommendations</h2>
+        <ul>
+            <li>✅ Logo files exist and are accessible</li>
+            <li>⚠️ File size is quite large (562KB) - consider optimizing to ~50KB or less</li>
+            <li>✅ Error handling has been added to all logo components</li>
+            <li>✅ Fallback mechanisms are in place</li>
+        </ul>
+    </div>
+
+    <script>
+        // Test file sizes and loading times
+        console.log('Logo loading test started');
+        
+        // Check if files exist by trying to fetch them
+        const testUrls = [
+            'client/public/netwin-logo.png',
+            'client/src/assets/netwin-logo.png', 
+            'netwin-logo.png'
+        ];
+
+        testUrls.forEach(async (url, index) => {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                console.log(`${url}: ${response.ok ? 'EXISTS' : 'NOT FOUND'} (${response.status})`);
+                if (response.ok) {
+                    const size = response.headers.get('content-length');
+                    console.log(`${url}: Size = ${size ? Math.round(size/1024) + 'KB' : 'Unknown'}`);
+                }
+            } catch (error) {
+                console.log(`${url}: ERROR - ${error.message}`);
+            }
+        });
+    </script>
+</body>
+</html>

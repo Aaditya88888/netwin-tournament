@@ -1,0 +1,12 @@
+specVersion: "v1"
+serviceId: "netwin-tournament-admin"
+location: "asia-south1"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "fdcdb"
+      cloudSql:
+        instanceId: "netwin-tournament-admin-fdc"
+      # schemaValidation: "COMPATIBLE"
+connectorDirs: ["./connector"]

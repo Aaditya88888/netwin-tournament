@@ -1,0 +1,5 @@
+{
+  "root": true,
+  "extends": ["next", "next/core-web-vitals"],
+  "ignorePatterns": ["**/*.md", "**/node_modules/*", "**/dist/*", "**/build/*"]
+}

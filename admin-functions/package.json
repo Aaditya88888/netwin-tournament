@@ -1,0 +1,32 @@
+{
+  "name": "netwin-tournament-admin-functions",
+  "version": "1.0.0",
+  "description": "Cloud Functions for Netwin Tournament Admin",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "powershell -Command \"if (Test-Path .\\lib\\server) { Remove-Item -Recurse -Force .\\lib\\server }; cd ../server; tsc --project tsconfig.json; cd ../admin-functions; tsc; if (!(Test-Path .\\lib\\server)) { New-Item -ItemType Directory -Path .\\lib\\server | Out-Null }; Get-ChildItem -Path ..\\server\\lib\\* | ForEach-Object { Copy-Item -Recurse -Force $_.FullName .\\lib\\server\\ }\"",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^4.5.0",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.0",
+    "typescript": "^5.0.0"
+  },
+  "private": true
+}
