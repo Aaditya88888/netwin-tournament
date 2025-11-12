@@ -1,4 +1,5 @@
 import { auth } from "./firebase.js";
+import { firestore } from "./firebase.js";
 import { sendModeratorInviteEmail } from "./sendEmail.js";
 // POST /moderator/invite
 export async function inviteModerator(req, res) {
@@ -21,6 +22,19 @@ export async function inviteModerator(req, res) {
     if (filteredPermissions.length === 0) {
         return res.status(400).json({ message: "No valid permissions provided" });
     }
+    // Determine admin URL based on request origin
+    const origin = req.get('origin') || req.get('referer');
+    let adminUrl = process.env.ADMIN_URL || 'http://localhost:3000';
+    if (origin) {
+        // Extract base URL from origin
+        try {
+            const url = new URL(origin);
+            adminUrl = `${url.protocol}//${url.host}`;
+        }
+        catch (e) {
+            // Use default if URL parsing fails
+        }
+    }
     try {
         let user;
         let isNewUser = false;
@@ -39,18 +53,57 @@ export async function inviteModerator(req, res) {
         }
         // Set custom claim
         await auth.setCustomUserClaims(user.uid, { role: "moderator", permissions: filteredPermissions });
-        // Generate password reset link for new users
+        // Generate admin-specific password reset link for new users
         let passwordLink = '';
         if (isNewUser) {
-            passwordLink = await auth.generatePasswordResetLink(email);
+            const actionCodeSettings = {
+                url: `${adminUrl}/auth/reset-password?email=${encodeURIComponent(email)}`,
+                handleCodeInApp: true
+            };
+            passwordLink = await auth.generatePasswordResetLink(email, actionCodeSettings);
         }
-        // Send invite email (include password link if new user)
+        // Store moderator access in Firestore
+        await firestore.collection('moderator_access').doc(user.uid).set({
+            email: user.email,
+            role: 'moderator',
+            permissions: filteredPermissions,
+            invitedAt: new Date(),
+            invitedBy: 'admin',
+            status: 'active',
+            adminAppAccess: true
+        }, { merge: true });
+        // Store moderator email in a separate collection for notification
+        await firestore.collection('pending_notifications').doc().set({
+            type: 'moderator_invite',
+            email: email,
+            permissions: filteredPermissions,
+            adminUrl: adminUrl,
+            passwordLink: passwordLink || '',
+            createdAt: new Date(),
+            status: 'pending'
+        });
+        // Send invite email (include password link if new user and dynamic admin URL)
         try {
-            await sendModeratorInviteEmail(email, permissions, passwordLink);
-            return res.status(200).json({ success: true, message: "Moderator invited successfully" });
+            // Debug email configuration
+            console.log('Email configuration:', {
+                EMAIL_FROM_ADDRESS: process.env.EMAIL_FROM_ADDRESS,
+                SMTP_USER: process.env.SMTP_USER,
+                SMTP_HOST: process.env.SMTP_HOST,
+                recipient: email
+            });
+            // Send email regardless of domain
+            await sendModeratorInviteEmail(email, permissions, passwordLink, adminUrl);
+            return res.status(200).json({ success: true, message: "Moderator invited successfully and email sent" });
         }
         catch (mailErr) {
-            return res.status(200).json({ success: true, message: `Moderator invited, but failed to send email: ${mailErr.message}` });
+            console.error('Failed to send moderator invite email:', mailErr);
+            // Log SMTP configuration for debugging (without exposing full credentials)
+            console.log(`SMTP Config: Host=${process.env.SMTP_HOST}, Port=${process.env.SMTP_PORT}, User=${process.env.SMTP_USER?.substring(0, 3)}***`);
+            return res.status(200).json({
+                success: true,
+                message: `Moderator invited, but failed to send email: ${mailErr.message}`,
+                emailError: true
+            });
         }
     }
     catch (error) {

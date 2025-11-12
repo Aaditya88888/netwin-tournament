@@ -2,7 +2,7 @@
 export class ServerAppCheckService {
     static initialize() {
         // Get the App Check token from environment
-        const envToken = process.env.FIREBASE_APP_CHECK_TOKEN || process.env.VITE_FIREBASE_APP_CHECK_TOKEN;
+        const envToken = process.env.FB_APP_CHECK_TOKEN || process.env.VITE_FB_APP_CHECK_TOKEN;
         if (envToken && envToken !== 'your-firebase-app-check-token-here') {
             this.token = envToken;
             console.log('Server App Check token loaded from environment');
@@ -29,6 +29,7 @@ ServerAppCheckService.token = null;
 export const appCheckMiddleware = (req, res, next) => {
     // Skip App Check validation in development mode
     if (process.env.NODE_ENV === 'development') {
+        console.log('App Check validation skipped in development mode');
         next();
         return;
     }

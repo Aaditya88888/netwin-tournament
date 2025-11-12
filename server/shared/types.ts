@@ -1,20 +1,20 @@
-import { type InferModel } from 'drizzle-orm';
-import { tournaments, users, registrations, results, transactions, announcements } from './schema.js';
-import { z } from 'zod';
+import {type InferModel} from "drizzle-orm";
+import {tournaments, users, registrations, results, transactions, announcements} from "./schema.js";
+import {z} from "zod";
 
 export interface Tournament {
   id: string;
   name: string;
-  title: string;  // Used in frontend as display name
+  title: string; // Used in frontend as display name
   description?: string;
   gameType: string;
   matchType: string;
   map: string;
-  startTime: string | Date;  // Allow both formats for flexibility
+  startTime: string | Date; // Allow both formats for flexibility
   entryFee: number;
   prizePool: number;
   maxTeams: number;
-  maxPlayers: number;  // Same as maxTeams, used in frontend
+  maxPlayers: number; // Same as maxTeams, used in frontend
   currentRegistrations: number;
   registeredTeams: number;
   status: string;
@@ -24,7 +24,7 @@ export interface Tournament {
     position: number;
     percentage: number;
   }[];
-  createdAt: string | Date;  // Allow both formats for flexibility
+  createdAt: string | Date; // Allow both formats for flexibility
   killReward?: number;
   roomId?: string;
   roomPassword?: string;
@@ -35,25 +35,25 @@ export interface Tournament {
 }
 
 export type User = InferModel<typeof users>;
-export type UserInsert = InferModel<typeof users, 'insert'>;
+export type UserInsert = InferModel<typeof users, "insert">;
 
 export type Registration = InferModel<typeof registrations>;
-export type RegistrationInsert = InferModel<typeof registrations, 'insert'>;
+export type RegistrationInsert = InferModel<typeof registrations, "insert">;
 
 export type Result = InferModel<typeof results>;
-export type ResultInsert = InferModel<typeof results, 'insert'>;
+export type ResultInsert = InferModel<typeof results, "insert">;
 
 export type Transaction = InferModel<typeof transactions>;
-export type TransactionInsert = InferModel<typeof transactions, 'insert'>;
+export type TransactionInsert = InferModel<typeof transactions, "insert">;
 
 export type Announcement = InferModel<typeof announcements>;
-export type AnnouncementInsert = InferModel<typeof announcements, 'insert'>;
+export type AnnouncementInsert = InferModel<typeof announcements, "insert">;
 
 export type Notification = {
   id: string;
   title: string;
   message: string;
-  type: 'general' | 'tournament';
+  type: "general" | "tournament";
   isActive: boolean;
   tournamentId?: string;
   createdAt: string;
@@ -61,19 +61,19 @@ export type Notification = {
 
 export const insertNotificationSchema = z.object({
   title: z.string().min(1).max(100),
-  message: z.string().min(1).max(1000)
+  message: z.string().min(1).max(1000),
 });
 
 export type KycDocument = {
   id: string;
-  type: 'id-proof' | 'address-proof' | 'selfie';
+  type: "id-proof" | "address-proof" | "selfie";
   frontImage?: string;
   frontImageUrl?: string; // Same as frontImage
   backImage?: string;
   backImageUrl?: string; // Same as backImage
   selfie?: string;
   selfieUrl?: string; // Same as selfie
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   createdAt: string;
   updatedAt: string;
   submittedAt?: string;
@@ -88,7 +88,7 @@ export type AdminUser = {
   uid: string;
   name?: string;
   email: string;
-  role: 'admin' | 'moderator';
+  role: "admin" | "moderator";
   createdAt: string;
   displayName?: string;
   photoURL?: string;
@@ -114,7 +114,7 @@ export type SupportTicketBase = {
 
 export interface SupportTicket extends SupportTicketBase {
   responses?: SupportTicketResponse[];
-};
+}
 
 export type SupportTicketResponse = {
   id: string;
@@ -128,20 +128,20 @@ export type SupportTicketResponse = {
 };
 
 export enum SupportTicketStatus {
-  OPEN = 'open',
-  IN_PROGRESS = 'in-progress',
-  RESOLVED = 'resolved',
-  CLOSED = 'closed',
-  PENDING = 'pending'
+  OPEN = "open",
+  IN_PROGRESS = "in-progress",
+  RESOLVED = "resolved",
+  CLOSED = "closed",
+  PENDING = "pending"
 }
 
-export type SupportTicketStatusType = 'open' | 'in-progress' | 'resolved' | 'closed' | 'pending';
+export type SupportTicketStatusType = "open" | "in-progress" | "resolved" | "closed" | "pending";
 
 export enum SupportTicketPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  URGENT = 'urgent'
+  LOW = "low",
+  MEDIUM = "medium",
+  HIGH = "high",
+  URGENT = "urgent"
 }
 
 export interface PrizeDistributionRule {
@@ -151,7 +151,7 @@ export interface PrizeDistributionRule {
   perKillReward: number;
   adminOverride?: boolean;
   overrideDistribution?: RewardDistribution[];
-};
+}
 
 export type RewardDistribution = {
   position: number;

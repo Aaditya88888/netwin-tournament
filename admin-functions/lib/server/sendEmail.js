@@ -6,12 +6,16 @@ config();
 export class EmailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: process.env.SMTP_HOST || 'smtp.zoho.com',
+            port: parseInt(process.env.SMTP_PORT || '465'),
+            secure: process.env.SMTP_SECURE === 'true',
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
-            secure: true,
+            tls: {
+                rejectUnauthorized: false
+            }
         });
     }
     // Verify email configuration
@@ -23,6 +27,11 @@ export class EmailService {
         }
         catch (error) {
             console.error('❌ Email service verification failed:', error);
+            // Log detailed error information for debugging
+            if (error instanceof Error) {
+                console.error(`Error name: ${error.name}, Message: ${error.message}`);
+                console.error(`SMTP Configuration: Host=${process.env.SMTP_HOST}, Port=${process.env.SMTP_PORT}, User=${process.env.SMTP_USER?.substring(0, 3)}***`);
+            }
             return false;
         }
     }
@@ -193,8 +202,8 @@ export class EmailService {
         };
         await this.transporter.sendMail(mailOptions);
     }
-    // Send moderator invitation email
-    async sendModeratorInviteEmail(email, permissions, passwordLink) {
+    // Send moderator invitation email with dynamic login URL
+    async sendModeratorInviteEmail(email, permissions, passwordLink, adminUrl) {
         const permissionLabels = {
             manage_users: 'Manage Users',
             edit_tournaments: 'Edit Tournaments',
@@ -204,6 +213,8 @@ export class EmailService {
             review_kyc: 'Review KYC Documents'
         };
         const permissionList = permissions.map(p => permissionLabels[p] || p).join(', ');
+        // Use provided adminUrl or fallback to environment variable
+        const loginUrl = adminUrl || process.env.ADMIN_URL || 'http://localhost:3000';
         let passwordSection = '';
         if (passwordLink) {
             passwordSection = `
@@ -237,7 +248,7 @@ export class EmailService {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.ADMIN_URL}" style="display: inline-block; background-color: #6f42c1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+            <a href="${loginUrl}" style="display: inline-block; background-color: #6f42c1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
               Access Admin Panel
             </a>
           </div>
@@ -249,6 +260,7 @@ export class EmailService {
               <strong>Next Steps:</strong>
             </p>
             <ol style="color: #0c5460; font-size: 14px; margin: 10px 0 0 0;">
+              <li>Click the "Access Admin Panel" button above to go to the login page</li>
               <li>Log in with your existing account or set your password if you are new</li>
               <li>Your moderator permissions are now active</li>
               <li>Contact the admin if you need additional permissions</li>
@@ -371,8 +383,10 @@ export class EmailService {
 // Create singleton instance
 export const emailService = new EmailService();
 // Legacy exports for backward compatibility
-export async function sendModeratorInviteEmail(email, permissions, passwordLink) {
-    return emailService.sendModeratorInviteEmail(email, permissions, passwordLink);
+export async function sendModeratorInviteEmail(email, permissions, passwordLink, adminUrl) {
+    console.log('Sending moderator invite email to:', email);
+    console.log('Using EMAIL_FROM_ADDRESS:', process.env.EMAIL_FROM_ADDRESS);
+    return emailService.sendModeratorInviteEmail(email, permissions, passwordLink, adminUrl);
 }
 export async function sendWelcomeEmail(email, username, verificationLink) {
     return emailService.sendWelcomeEmail(email, username, verificationLink);

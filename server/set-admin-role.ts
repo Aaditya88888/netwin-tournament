@@ -1,5 +1,5 @@
-import { config } from 'dotenv';
-import { auth } from './firebase.js';
+import {config} from "dotenv";
+import {auth} from "./firebase.js";
 
 // Load environment variables
 config();
@@ -10,31 +10,31 @@ config();
 async function setAdminRole() {
   try {
     // Get admin UID from environment variables
-    const adminUid = process.env.ADMIN_UID || '0aOfiftKNqgMtghC0CxxYyosaEo1';
-    const adminEmail = process.env.ADMIN_EMAIL || 'michael@netwin.app';
-    
+    const adminUid = process.env.ADMIN_UID || "0aOfiftKNqgMtghC0CxxYyosaEo1";
+    const adminEmail = process.env.ADMIN_EMAIL || "michael@netwin.app";
+
     console.log(`Setting admin role for user: ${adminEmail} (${adminUid})`);
-    
+
     // Set custom claims for the admin user
-    await auth.setCustomUserClaims(adminUid, { 
-      role: 'admin',
-      permissions: ['*'],
-      isAdmin: true
+    await auth.setCustomUserClaims(adminUid, {
+      role: "admin",
+      permissions: ["*"],
+      isAdmin: true,
     });
-    
-    console.log('✅ Admin role set successfully!');
-    
+
+    console.log("✅ Admin role set successfully!");
+
     // Verify the claims were set
     const userRecord = await auth.getUser(adminUid);
-    console.log('User record:', userRecord.toJSON());
-    
+    console.log("User record:", userRecord.toJSON());
+
     // Get custom claims
     const idTokenResult = await auth.createCustomToken(adminUid);
-    console.log('Custom token created for verification');
-    
-    console.log('Admin setup complete. You can now log in with:', adminEmail);
+    console.log("Custom token created for verification");
+
+    console.log("Admin setup complete. You can now log in with:", adminEmail);
   } catch (error) {
-    console.error('❌ Error setting admin role:', error);
+    console.error("❌ Error setting admin role:", error);
   }
 }
 

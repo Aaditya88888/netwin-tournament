@@ -1,6 +1,6 @@
-import { config } from 'dotenv';
-import { firestore } from './firebase.js';
-import nodemailer from 'nodemailer';
+import {config} from "dotenv";
+import {firestore} from "./firebase.js";
+import nodemailer from "nodemailer";
 
 // Load environment variables
 config();
@@ -10,82 +10,82 @@ config();
  * This can be run manually or scheduled to run periodically
  */
 async function sendPendingInvites() {
-  console.log('Checking for pending moderator invites...');
-  
+  console.log("Checking for pending moderator invites...");
+
   try {
     // Create transporter
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.zoho.com',
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: process.env.SMTP_SECURE === 'true',
+      host: process.env.SMTP_HOST || "smtp.zoho.com",
+      port: parseInt(process.env.SMTP_PORT || "465"),
+      secure: process.env.SMTP_SECURE === "true",
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
       tls: {
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+      },
     });
-    
+
     // Verify connection
     await transporter.verify();
-    console.log('✅ SMTP connection verified!');
-    
+    console.log("✅ SMTP connection verified!");
+
     // Get pending notifications
-    const snapshot = await firestore.collection('pending_notifications')
-      .where('status', '==', 'pending')
-      .where('type', '==', 'moderator_invite')
+    const snapshot = await firestore.collection("pending_notifications")
+      .where("status", "==", "pending")
+      .where("type", "==", "moderator_invite")
       .limit(10)
       .get();
-    
+
     if (snapshot.empty) {
-      console.log('No pending moderator invites found.');
+      console.log("No pending moderator invites found.");
       return;
     }
-    
+
     console.log(`Found ${snapshot.size} pending moderator invites.`);
-    
+
     // Process each pending invite
     for (const doc of snapshot.docs) {
       const data = doc.data();
-      const { email, permissions, adminUrl, passwordLink } = data;
-      
+      const {email, permissions, adminUrl, passwordLink} = data;
+
       try {
         // Check if email domain matches our sending domain to avoid relay issues
-        const senderDomain = process.env.EMAIL_FROM_ADDRESS?.split('@')[1];
-        const recipientDomain = email.split('@')[1];
-        
+        const senderDomain = process.env.EMAIL_FROM_ADDRESS?.split("@")[1];
+        const recipientDomain = email.split("@")[1];
+
         if (senderDomain && recipientDomain && senderDomain === recipientDomain) {
           // Same domain - can send directly
           await sendModeratorInviteEmail(email, permissions, passwordLink, adminUrl);
           console.log(`✅ Sent invite to ${email}`);
-          
+
           // Update status
           await doc.ref.update({
-            status: 'sent',
-            sentAt: new Date()
+            status: "sent",
+            sentAt: new Date(),
           });
         } else {
           console.log(`⚠️ Cannot send to ${email}: domain ${recipientDomain} differs from sender domain ${senderDomain}`);
           await doc.ref.update({
-            status: 'failed',
-            error: 'Domain relay restriction',
-            updatedAt: new Date()
+            status: "failed",
+            error: "Domain relay restriction",
+            updatedAt: new Date(),
           });
         }
       } catch (error) {
         console.error(`❌ Failed to send invite to ${email}:`, error);
         await doc.ref.update({
-          status: 'failed',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          updatedAt: new Date()
+          status: "failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+          updatedAt: new Date(),
         });
       }
     }
-    
-    console.log('Finished processing pending moderator invites.');
+
+    console.log("Finished processing pending moderator invites.");
   } catch (error) {
-    console.error('❌ Error processing pending invites:', error);
+    console.error("❌ Error processing pending invites:", error);
   }
 }
 
@@ -94,20 +94,20 @@ async function sendPendingInvites() {
  */
 async function sendModeratorInviteEmail(email: string, permissions: string[], passwordLink?: string, adminUrl?: string): Promise<void> {
   const permissionLabels: Record<string, string> = {
-    manage_users: 'Manage Users',
-    edit_tournaments: 'Edit Tournaments',
-    view_reports: 'View Reports',
-    manage_announcements: 'Manage Announcements',
-    distribute_prizes: 'Distribute Prizes',
-    review_kyc: 'Review KYC Documents'
+    manage_users: "Manage Users",
+    edit_tournaments: "Edit Tournaments",
+    view_reports: "View Reports",
+    manage_announcements: "Manage Announcements",
+    distribute_prizes: "Distribute Prizes",
+    review_kyc: "Review KYC Documents",
   };
-  
-  const permissionList = permissions.map(p => permissionLabels[p] || p).join(', ');
-  
+
+  const permissionList = permissions.map((p) => permissionLabels[p] || p).join(", ");
+
   // Use provided adminUrl or fallback to environment variable
-  const loginUrl = adminUrl || process.env.ADMIN_URL || 'http://localhost:3000';
-  
-  let passwordSection = '';
+  const loginUrl = adminUrl || process.env.ADMIN_URL || "http://localhost:3000";
+
+  let passwordSection = "";
   if (passwordLink) {
     passwordSection = `
       <div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -119,7 +119,7 @@ async function sendModeratorInviteEmail(email: string, permissions: string[], pa
       </div>
     `;
   }
-  
+
   const emailContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
       <div style="background-color: #6f42c1; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
@@ -175,23 +175,23 @@ async function sendModeratorInviteEmail(email: string, permissions: string[], pa
 
   // Create transporter
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.zoho.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: process.env.SMTP_SECURE === 'true',
+    host: process.env.SMTP_HOST || "smtp.zoho.com",
+    port: parseInt(process.env.SMTP_PORT || "465"),
+    secure: process.env.SMTP_SECURE === "true",
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
     tls: {
-      rejectUnauthorized: false
-    }
+      rejectUnauthorized: false,
+    },
   });
 
   // Send the email
   await transporter.sendMail({
     from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
     to: email,
-    subject: 'Moderator Access Granted - Netwin Tournament',
+    subject: "Moderator Access Granted - Netwin Tournament",
     html: emailContent,
   });
 }
@@ -200,8 +200,8 @@ async function sendModeratorInviteEmail(email: string, permissions: string[], pa
 if (require.main === module) {
   sendPendingInvites()
     .then(() => process.exit(0))
-    .catch(err => {
-      console.error('Failed to send pending invites:', err);
+    .catch((err) => {
+      console.error("Failed to send pending invites:", err);
       process.exit(1);
     });
 }
