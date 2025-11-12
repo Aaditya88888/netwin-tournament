@@ -1,6 +1,6 @@
-import { pgTable, text, serial, integer, boolean, json, timestamp, doublePrecision } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import {pgTable, text, serial, integer, boolean, json, timestamp, doublePrecision} from "drizzle-orm/pg-core";
+import {createInsertSchema} from "drizzle-zod";
+import {z} from "zod";
 
 // Users table
 export const users = pgTable("users", {
@@ -95,7 +95,7 @@ export const transactions = pgTable("transactions", {
 });
 
 // Announcements table
-export * from './types.js';
+export * from "./types.js";
 
 export const announcements = pgTable("announcements", {
   id: serial("id").primaryKey(),
@@ -219,9 +219,9 @@ export const insertKycDocumentSchema = z.object({
 
 // Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = InsertUser & { 
-  id: number; 
-  createdAt: Date; 
+export type User = InsertUser & {
+  id: number;
+  createdAt: Date;
   updatedAt: Date;
   lastLogin: Date | null;
   registeredTeams?: number;
@@ -231,10 +231,10 @@ export type User = InsertUser & {
 };
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
-export type Tournament = InsertTournament & { 
-  id: string; 
-  createdAt: Date; 
-  updatedAt: Date; 
+export type Tournament = InsertTournament & {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
   registeredTeams?: number;
   killReward?: number;
   roomId?: string;
@@ -244,36 +244,36 @@ export type Tournament = InsertTournament & {
 };
 
 export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
-export type Registration = InsertRegistration & { 
-  id: number; 
-  createdAt: Date; 
-  updatedAt: Date; 
+export type Registration = InsertRegistration & {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type InsertResult = z.infer<typeof insertResultSchema>;
-export type Result = InsertResult & { 
-  id: number; 
-  createdAt: Date; 
-  updatedAt: Date; 
+export type Result = InsertResult & {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
-export type Transaction = InsertTransaction & { 
-  id: number; 
-  createdAt: Date; 
-  updatedAt: Date; 
+export type Transaction = InsertTransaction & {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
-export type Announcement = InsertAnnouncement & { 
-  id: number; 
-  createdAt: Date; 
-  updatedAt: Date; 
+export type Announcement = InsertAnnouncement & {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type InsertKycDocument = z.infer<typeof insertKycDocumentSchema>;
-export type KycDocument = InsertKycDocument & { 
-  id: number; 
-  createdAt: Date; 
-  updatedAt: Date; 
+export type KycDocument = InsertKycDocument & {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
 };

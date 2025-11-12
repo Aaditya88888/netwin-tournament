@@ -22,16 +22,16 @@ function getConfig(key, fallback) {
     // In production (Cloud Functions)
     return functions.config().admin[key.toLowerCase()] || fallback;
 }
-const projectId = getConfig('FIREBASE_PROJECT_ID');
-const clientEmail = getConfig('FIREBASE_CLIENT_EMAIL');
-const privateKey = getConfig('FIREBASE_PRIVATE_KEY');
-const databaseURL = getConfig('FIREBASE_DATABASE_URL');
+const projectId = getConfig('FB_PROJECT_ID');
+const clientEmail = getConfig('FB_CLIENT_EMAIL');
+const privateKey = getConfig('FB_PRIVATE_KEY');
+const databaseURL = getConfig('FB_DATABASE_URL');
 // Environment validation (development only)
 if (process.env.NODE_ENV === 'development') {
     console.log('Environment check:', {
-        FIREBASE_PROJECT_ID: projectId ? `SET (${projectId})` : 'NOT SET',
-        FIREBASE_CLIENT_EMAIL: clientEmail ? 'SET' : 'NOT SET',
-        FIREBASE_PRIVATE_KEY: privateKey ? 'SET' : 'NOT SET'
+        FB_PROJECT_ID: projectId ? `SET (${projectId})` : 'NOT SET',
+        FB_CLIENT_EMAIL: clientEmail ? 'SET' : 'NOT SET',
+        FB_PRIVATE_KEY: privateKey ? 'SET' : 'NOT SET'
     });
 }
 // Initialize Firebase Admin SDK

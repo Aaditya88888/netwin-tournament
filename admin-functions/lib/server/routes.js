@@ -3,9 +3,12 @@ import { firestore } from './firebase.js';
 import { EmailService } from './sendEmail.js';
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { authenticateToken, requirePermission } from './middleware/auth.js';
+import { authenticateToken } from './middleware/auth.js';
+import { requirePermission } from './middleware/requirePermission.js';
+import { requireAdminOrModerator } from './middleware/requireAdminOrModerator.js';
 import { inviteModerator } from "./moderator.js";
-import { listModerators, removeModerator } from "./moderator-management.js";
+import { inviteModeratorDirect } from "./moderator-direct.js";
+import { listModerators, removeModerator, updateModeratorPermissions, toggleModeratorStatus } from "./moderator-management.js";
 // Use the initialized Firestore instance
 const db = firestore;
 import { appCheckMiddleware } from './middleware/appcheck.js';
@@ -18,7 +21,7 @@ export function registerRoutes(app) {
         process.env.GOOGLE_CLOUD_PROJECT ||
         process.env.K_SERVICE ||
         process.env.GCLOUD_PROJECT ||
-        process.env.FIREBASE_CONFIG);
+        process.env.FB_CONFIG);
     // Use /api prefix only when NOT running in Cloud Functions
     const apiPrefix = isCloudFunction ? "" : "/api";
     // Helper function to register routes with conditional /api prefix
@@ -271,7 +274,7 @@ export function registerRoutes(app) {
         }
     }));
     // User Routes
-    registerRoute('get', '/users', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/users', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const users = await storage.getAllUsers();
         res.json(users);
     }));
@@ -340,10 +343,10 @@ export function registerRoutes(app) {
         };
         res.json(stats);
     });
-    registerRoute('get', '/users/stats', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), adminUserStatsHandler);
-    registerRoute('get', '/api/admin/users/stats', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), adminUserStatsHandler);
+    registerRoute('get', '/users/stats', appCheckMiddleware, authenticateToken, requireAdminOrModerator, adminUserStatsHandler);
+    registerRoute('get', '/api/admin/users/stats', appCheckMiddleware, authenticateToken, requireAdminOrModerator, adminUserStatsHandler);
     // Bulk User Actions (delete, ban, etc)
-    registerRoute('post', '/api/admin/users/bulk', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/api/admin/users/bulk', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { action, userIds, value } = req.body;
         if (!action || !Array.isArray(userIds) || userIds.length === 0) {
             return res.status(400).json({ message: 'Action and userIds are required' });
@@ -357,9 +360,9 @@ export function registerRoutes(app) {
             res.status(500).json({ message: 'Bulk user action failed' });
         }
     }));
-    registerRoute('get', '/admin/users/stats', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), adminUserStatsHandler);
+    registerRoute('get', '/admin/users/stats', appCheckMiddleware, authenticateToken, requireAdminOrModerator, adminUserStatsHandler);
     // Get users with pagination and filtering
-    registerRoute('get', '/users/search', authenticateToken, requirePermission('manage_users'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/users/search', authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { page = 1, limit = 10, search = '', status = '', kycStatus = '' } = req.query;
         const allUsers = await storage.getAllUsers();
         let filteredUsers = allUsers.map(user => ({
@@ -406,12 +409,12 @@ export function registerRoutes(app) {
             }
         });
     }));
-    registerRoute('get', '/users/kyc/pending', appCheckMiddleware, authenticateToken, requirePermission('review_kyc'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/users/kyc/pending', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const users = await storage.getPendingKycUsers();
         res.json(users);
     }));
     // Delete a user by ID
-    registerRoute('delete', '/users/:userId', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(async (req, res) => {
+    registerRoute('delete', '/users/:userId', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { userId } = req.params;
         try {
             const success = await storage.deleteUser(userId);
@@ -446,7 +449,7 @@ export function registerRoutes(app) {
     }));
     // Update KYC status for a specific user
     // Update KYC status for a user (APPROVED/REJECTED)
-    registerRoute('patch', '/users/:userId/kyc', appCheckMiddleware, authenticateToken, requirePermission('review_kyc'), asyncHandler(async (req, res) => {
+    registerRoute('patch', '/users/:userId/kyc', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { userId } = req.params;
         const { kycStatus, docId, rejectionReason } = req.body;
         console.log(`KYC status update request for user ${userId}:`, { kycStatus, docId, rejectionReason });
@@ -474,7 +477,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get all users with KYC information for admin review
-    registerRoute('get', '/admin/kyc', appCheckMiddleware, authenticateToken, requirePermission('review_kyc'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/admin/kyc', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { status, search, sortBy = 'kycSubmittedAt', sortOrder = 'desc', page = 1, limit = 50 } = req.query;
         try {
             // Get all users AND all KYC documents
@@ -623,12 +626,15 @@ export function registerRoutes(app) {
             res.status(500).json({ message: "Failed to fetch KYC users" });
         }
     }));
-    // Moderator Invite/Manual Access Endpoint
-    registerRoute('post', '/moderator/invite', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(inviteModerator));
-    registerRoute('get', '/moderator/list', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(listModerators));
-    registerRoute('post', '/moderator/remove', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(removeModerator));
+    // Moderator Management Endpoints
+    registerRoute('post', '/moderator/invite', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(inviteModerator));
+    registerRoute('post', '/moderator/invite-direct', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(inviteModeratorDirect));
+    registerRoute('get', '/moderator/list', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(listModerators));
+    registerRoute('post', '/moderator/remove', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(removeModerator));
+    registerRoute('patch', '/moderator/permissions', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(updateModeratorPermissions));
+    registerRoute('patch', '/moderator/status', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(toggleModeratorStatus));
     // Individual User Routes
-    registerRoute('get', '/users/:id', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/users/:id', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             const user = await storage.getUserByUid(id);
@@ -643,7 +649,7 @@ export function registerRoutes(app) {
         }
     }));
     // Update user status
-    registerRoute('patch', '/users/:id/status', appCheckMiddleware, authenticateToken, requirePermission('manage_users'), asyncHandler(async (req, res) => {
+    registerRoute('patch', '/users/:id/status', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
         if (!status) {
@@ -659,7 +665,7 @@ export function registerRoutes(app) {
         }
     }));
     // Add bonus to user wallet
-    registerRoute('post', '/users/:id/add-bonus', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/users/:id/add-bonus', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { amount, reason } = req.body;
         if (!amount || amount <= 0) {
@@ -697,7 +703,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get user tournaments
-    registerRoute('get', '/users/:id/tournaments', appCheckMiddleware, authenticateToken, requirePermission('edit_tournaments'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/users/:id/tournaments', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             // For now return empty array - this would need implementation in storage
@@ -710,7 +716,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get user transactions
-    registerRoute('get', '/users/:id/transactions', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/users/:id/transactions', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             const transactions = await storage.getUserAllTransactions(id);
@@ -794,7 +800,7 @@ export function registerRoutes(app) {
         }
     }));
     // Tournament Routes - Protected Admin Routes
-    registerRoute('post', '/tournaments', appCheckMiddleware, authenticateToken, requirePermission('edit_tournaments'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournaments', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             // Ensure room credentials are included in the tournament data
             const tournamentData = {
@@ -830,7 +836,7 @@ export function registerRoutes(app) {
             }
         }
     }));
-    registerRoute('patch', '/tournaments/:id', appCheckMiddleware, authenticateToken, requirePermission('edit_tournaments'), asyncHandler(async (req, res) => {
+    registerRoute('patch', '/tournaments/:id', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const id = req.params.id;
         const tournament = await storage.getTournament(id);
         if (!tournament) {
@@ -839,7 +845,7 @@ export function registerRoutes(app) {
         const updatedTournament = await storage.updateTournament(id, req.body);
         res.json(updatedTournament);
     }));
-    registerRoute('delete', '/tournaments/:id', appCheckMiddleware, authenticateToken, requirePermission('edit_tournaments'), asyncHandler(async (req, res) => {
+    registerRoute('delete', '/tournaments/:id', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const id = req.params.id;
         const tournament = await storage.getTournament(id);
         if (!tournament) {
@@ -851,6 +857,27 @@ export function registerRoutes(app) {
         }
         else {
             res.status(500).json({ message: "Failed to delete tournament" });
+        }
+    }));
+    // Tournament Stats Route (admin/moderator)
+    registerRoute('get', '/admin/tournaments/stats', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
+        try {
+            const tournaments = await storage.getAllTournaments();
+            const now = new Date();
+            const total = tournaments.length;
+            const upcoming = tournaments.filter(t => t.startTime && new Date(t.startTime) > now).length;
+            const completed = tournaments.filter(t => t.status === 'completed').length;
+            const active = tournaments.filter(t => t.status === 'active').length;
+            res.json({
+                totalTournaments: total,
+                upcomingTournaments: upcoming,
+                completedTournaments: completed,
+                activeTournaments: active
+            });
+        }
+        catch (error) {
+            console.error('Error fetching tournament stats:', error);
+            res.status(500).json({ message: 'Failed to fetch tournament stats' });
         }
     }));
     // Public Tournament Routes
@@ -943,7 +970,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get Tournament Registrations with Results (Admin only)
-    registerRoute('get', '/tournaments/:id/registrations', appCheckMiddleware, authenticateToken, requirePermission('edit_tournaments'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/tournaments/:id/registrations', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             const { id: tournamentId } = req.params;
             const registrationsSnapshot = await db.collection('tournament_registrations')
@@ -966,7 +993,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get Tournament Results Management - Shows ALL registered users regardless of result submission
-    registerRoute('get', '/tournaments/:id/results-management', appCheckMiddleware, authenticateToken, requirePermission('edit_tournaments'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/tournaments/:id/results-management', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             const { id: tournamentId } = req.params;
             // Get tournament info
@@ -1066,7 +1093,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get all deposits (pending, approved, rejected)
-    registerRoute('get', '/wallet/deposits', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/wallet/deposits', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const snapshot = await db.collection('pending_deposits')
                 .orderBy('createdAt', 'desc')
@@ -1086,7 +1113,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get all withdrawals (pending, approved, rejected)
-    registerRoute('get', '/wallet/withdrawals', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/wallet/withdrawals', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const snapshot = await db.collection('pending_withdrawals')
                 .orderBy('createdAt', 'desc')
@@ -1106,7 +1133,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get all transactions (deposits and withdrawals combined)
-    registerRoute('get', '/wallet/transactions', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/wallet/transactions', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const { page = 1, limit = 50, type, status, userId, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
             // Get both deposits and withdrawals from their respective collections
@@ -1201,7 +1228,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get wallet config from admin_config/wallet_config (correct structure)
-    registerRoute('get', '/wallet/config', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/wallet/config', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const doc = await db.collection('admin_config').doc('wallet_config').get();
             if (!doc.exists) {
@@ -1239,7 +1266,7 @@ export function registerRoutes(app) {
         }
     }));
     // Update wallet config in admin_config/wallet_config (correct structure)
-    registerRoute('post', '/wallet/config', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/wallet/config', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const configData = req.body; // Should be the full currency config object
             console.log('Updating wallet config with data:', configData);
@@ -1274,7 +1301,7 @@ export function registerRoutes(app) {
         }
     }));
     // Legacy UPI config endpoints - redirects to wallet_config for backward compatibility
-    registerRoute('get', '/wallet/upi-config', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/wallet/upi-config', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             // Get from the correct wallet_config document, but return only INR data for backward compatibility
             const doc = await db.collection('admin_config').doc('wallet_config').get();
@@ -1303,7 +1330,7 @@ export function registerRoutes(app) {
         }
     }));
     // Legacy UPI config update - updates INR in wallet_config for backward compatibility
-    registerRoute('post', '/wallet/upi-config', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/wallet/upi-config', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const { displayName, upiId, isActive, qrCode } = req.body;
             const updateData = {
@@ -1329,7 +1356,7 @@ export function registerRoutes(app) {
         }
     }));
     // Approve deposit
-    registerRoute('post', '/wallet/deposits/:id/approve', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/wallet/deposits/:id/approve', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const depositId = req.params.id;
         if (!depositId)
             return res.status(400).json({ message: 'Missing deposit ID' });
@@ -1396,7 +1423,7 @@ export function registerRoutes(app) {
         }
     }));
     // Reject deposit
-    registerRoute('post', '/wallet/deposits/:id/reject', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/wallet/deposits/:id/reject', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const { id } = req.params;
             const { reason } = req.body;
@@ -1445,7 +1472,7 @@ export function registerRoutes(app) {
         }
     }));
     // Approve withdrawal
-    registerRoute('post', '/wallet/withdrawals/:id/approve', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/wallet/withdrawals/:id/approve', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const { id } = req.params;
             // Get withdrawal document (try both pending_withdrawals and wallet_withdrawals for compatibility)
@@ -1506,7 +1533,7 @@ export function registerRoutes(app) {
         }
     }));
     // Reject withdrawal
-    registerRoute('post', '/wallet/withdrawals/:id/reject', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/wallet/withdrawals/:id/reject', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         try {
             const { id } = req.params;
             const { reason } = req.body;
@@ -1577,7 +1604,7 @@ export function registerRoutes(app) {
         }
     }));
     // Tournament Management Status Endpoint
-    registerRoute('get', '/tournament-management/tournament-status/:id', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/tournament-management/tournament-status/:id', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             const tournament = await storage.getTournament(id);
@@ -1632,7 +1659,7 @@ export function registerRoutes(app) {
         }
     }));
     // Tournament Prize Distribution Endpoint - Pure Individual Logic
-    registerRoute('get', '/tournaments/:id/prize-distribution', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/tournaments/:id/prize-distribution', appCheckMiddleware, authenticateToken, requireAdminOrModerator, asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             const tournament = await storage.getTournament(id);
@@ -1748,7 +1775,7 @@ export function registerRoutes(app) {
         }
     }));
     // Tournament Transactions Endpoint
-    registerRoute('get', '/tournaments/:id/transactions', appCheckMiddleware, authenticateToken, requirePermission('distribute_prizes'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/tournaments/:id/transactions', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         const { id } = req.params;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -1798,7 +1825,7 @@ export function registerRoutes(app) {
         }
     }));
     // Tournament Management Actions - Update endpoints to match frontend calls
-    registerRoute('post', '/tournament-management/start-tournament/:id', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournament-management/start-tournament/:id', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             const tournament = await storage.getTournament(id);
@@ -1821,7 +1848,7 @@ export function registerRoutes(app) {
             res.status(500).json({ success: false, error: "Failed to start tournament" });
         }
     }));
-    registerRoute('post', '/tournament-management/complete-tournament/:id', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournament-management/complete-tournament/:id', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             const tournament = await storage.getTournament(id);
@@ -1844,7 +1871,7 @@ export function registerRoutes(app) {
             res.status(500).json({ success: false, error: "Failed to complete tournament" });
         }
     }));
-    registerRoute('post', '/tournament-management/check-tournament-statuses', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournament-management/check-tournament-statuses', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             // Get all tournaments and check their statuses
             const tournaments = await storage.getAllTournaments();
@@ -1875,7 +1902,7 @@ export function registerRoutes(app) {
         }
     }));
     // Tournament Notification Endpoint
-    registerRoute('post', '/tournament-management/send-tournament-notification/:id', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournament-management/send-tournament-notification/:id', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { title, message, priority = 'normal' } = req.body;
         try {
@@ -1902,7 +1929,7 @@ export function registerRoutes(app) {
         }
     }));
     // Test Notification Endpoint
-    registerRoute('post', '/tournament-management/send-test-notification', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournament-management/send-test-notification', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         const { userId, title, message, type = 'system' } = req.body;
         try {
             // TODO: Implement actual notification sending logic
@@ -1919,7 +1946,7 @@ export function registerRoutes(app) {
         }
     }));
     // Save Tournament Results Endpoint
-    registerRoute('post', '/tournaments/:id/results', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournaments/:id/results', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         const { id } = req.params;
         const results = req.body;
         try {
@@ -1957,7 +1984,7 @@ export function registerRoutes(app) {
         }
     }));
     // Enhanced Distribute Prizes Endpoint - Pure Individual Logic
-    registerRoute('post', '/tournaments/:id/distribute-prizes', appCheckMiddleware, authenticateToken, requirePermission('tournament_management'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/tournaments/:id/distribute-prizes', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         const { id } = req.params;
         try {
             const tournament = await storage.getTournament(id);
@@ -2083,7 +2110,7 @@ export function registerRoutes(app) {
         }
     }));
     // Admin Dashboard Stats endpoint - what the frontend actually calls
-    registerRoute('get', '/admin/dashboard/stats', appCheckMiddleware, authenticateToken, requirePermission('admin_dashboard'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/admin/dashboard/stats', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             const allUsers = await storage.getAllUsers();
             const allTournaments = await storage.getAllTournaments();
@@ -2157,7 +2184,7 @@ export function registerRoutes(app) {
     }));
     // Support Tickets Management Endpoints
     // Get all support tickets with pagination and filtering
-    registerRoute('get', '/support-tickets', appCheckMiddleware, authenticateToken, requirePermission('support_tickets'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/support-tickets', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             console.log('📧 Fetching support tickets from Firestore...');
             const { page = 1, limit = 10, status = 'all', priority = 'all', category = 'all', search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
@@ -2222,7 +2249,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get support ticket by ID (using ticketId)
-    registerRoute('get', '/support-tickets/:id', appCheckMiddleware, authenticateToken, requirePermission('support_tickets'), asyncHandler(async (req, res) => {
+    registerRoute('get', '/support-tickets/:id', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             const { id } = req.params; // This is the ticketId like "ST-MCRB95U0"
             console.log('[Support Ticket GET] Looking for ticketId:', id);
@@ -2251,7 +2278,7 @@ export function registerRoutes(app) {
         }
     }));
     // Update support ticket status (using ticketId)
-    registerRoute('patch', '/support-tickets/:id/status', appCheckMiddleware, authenticateToken, requirePermission('support_tickets'), asyncHandler(async (req, res) => {
+    registerRoute('patch', '/support-tickets/:id/status', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             const { id } = req.params; // This is the ticketId like "ST-MCRB95U0"
             const { status, adminNote } = req.body;
@@ -2290,7 +2317,7 @@ export function registerRoutes(app) {
         }
     }));
     // Add response to support ticket (using ticketId)
-    registerRoute('post', '/support-tickets/:id/responses', appCheckMiddleware, authenticateToken, requirePermission('support_tickets'), asyncHandler(async (req, res) => {
+    registerRoute('post', '/support-tickets/:id/responses', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             const { id } = req.params; // This is the ticketId like "ST-MCRB95U0"
             const { message, isInternal = false } = req.body;
@@ -2338,7 +2365,7 @@ export function registerRoutes(app) {
         }
     }));
     // Get support tickets statistics
-    registerRoute('get', '/support-tickets/stats', appCheckMiddleware, authenticateToken, requireAdmin, asyncHandler(async (req, res) => {
+    registerRoute('get', '/support-tickets/stats', appCheckMiddleware, authenticateToken, requirePermission('admin'), asyncHandler(async (req, res) => {
         try {
             const snapshot = await db.collection('support_tickets').get();
             const tickets = snapshot.docs.map((doc) => doc.data());

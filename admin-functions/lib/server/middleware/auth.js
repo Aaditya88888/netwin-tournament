@@ -1,12 +1,4 @@
 import { auth as firebaseAdminAuth } from '../firebase.js';
-// Simple admin credentials - no Firebase auth needed
-const ADMIN_CONFIG = {
-    uid: 'admin-1',
-    username: 'admin', // Changed from email to username
-    password: 'admin123',
-    role: 'admin',
-    isAdmin: true
-};
 export const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader?.split(' ')[1];
@@ -18,10 +10,12 @@ export const authenticateToken = async (req, res, next) => {
         // Verify Firebase ID token
         const decoded = await firebaseAdminAuth.verifyIdToken(token);
         console.log('✅ Token verified successfully:', { uid: decoded.uid, email: decoded.email, role: decoded.role });
+        console.log('🔍 Full decoded token:', decoded);
         req.user = {
             id: decoded.uid,
             username: decoded.email || decoded.uid,
             role: decoded.role || 'admin', // fallback, but you should set custom claims for real admin check
+            permissions: decoded.permissions || [],
             ...decoded
         };
         next();
@@ -37,11 +31,11 @@ export const authenticateToken = async (req, res, next) => {
                     // Try to decode the JWT payload (without verification for dev)
                     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
                     console.log('🔧 Dev token payload:', { iss: payload.iss, aud: payload.aud, email: payload.email, role: payload.role });
-                    if (payload.email === 'admin@netwin.com' || payload.role === 'admin') {
+                    if (payload.email === 'michael@netwin.app' || payload.role === 'admin') {
                         console.log('🔧 Dev mode: Allowing admin token');
                         req.user = {
                             id: payload.sub || 'admin-dev',
-                            username: payload.email || 'admin@netwin.com',
+                            username: payload.email || 'michael@netwin.app',
                             role: 'admin'
                         };
                         next();
@@ -57,24 +51,12 @@ export const authenticateToken = async (req, res, next) => {
         return;
     }
 };
-
-// Permission-based middleware: allows admins or moderators with required permission
-export const requirePermission = (permission) => {
-    return (req, res, next) => {
-        if (!req.user) {
-            res.status(403).json({ message: 'Authentication required' });
-            return;
-        }
-        // Admins always allowed
-        if (req.user.role === 'admin') {
-            return next();
-        }
-        // Moderators: check for permissions (from custom claims or user doc fields)
-        // Permissions can be in req.user.permissions (array of strings)
-        const perms = req.user.permissions || [];
-        if (req.user.role === 'moderator' && perms.includes(permission)) {
-            return next();
-        }
-        res.status(403).json({ message: 'Insufficient permissions' });
-    };
+export const requireAdmin = (req, res, next) => {
+    // Check for custom claim 'role' === 'admin' (set this in Firebase Auth for admin users)
+    if (!req.user || req.user.role !== 'admin') {
+        res.status(403).json({ message: 'Admin access required' });
+        return;
+    }
+    next();
 };
+// Remove old JWT-based adminLogin (no longer needed with Firebase Auth)

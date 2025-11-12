@@ -1,20 +1,19 @@
-import { Request, Response } from "express";
-import { auth } from "./firebase.js";
-import { firestore } from "./firebase.js";
-import nodemailer from 'nodemailer';
-import { config } from 'dotenv';
+import {Request, Response} from "express";
+import {auth, firestore} from "./firebase.js";
+import nodemailer from "nodemailer";
+import {config} from "dotenv";
 
 // Load environment variables
 config();
 
 // POST /moderator/invite-direct
 export async function inviteModeratorDirect(req: Request, res: Response) {
-  const { email, manual, permissions } = req.body;
-  if (!email) return res.status(400).json({ message: "Email is required" });
+  const {email, manual, permissions} = req.body;
+  if (!email) return res.status(400).json({message: "Email is required"});
   if (!Array.isArray(permissions) || permissions.length === 0) {
-    return res.status(400).json({ message: "At least one permission is required" });
+    return res.status(400).json({message: "At least one permission is required"});
   }
-  
+
   // Validate permissions
   const ALLOWED_PERMISSIONS = [
     "manage_users",
@@ -22,17 +21,17 @@ export async function inviteModeratorDirect(req: Request, res: Response) {
     "view_reports",
     "manage_announcements",
     "distribute_prizes",
-    "review_kyc"
+    "review_kyc",
   ];
   const filteredPermissions = permissions.filter((p: string) => ALLOWED_PERMISSIONS.includes(p));
   if (filteredPermissions.length === 0) {
-    return res.status(400).json({ message: "No valid permissions provided" });
+    return res.status(400).json({message: "No valid permissions provided"});
   }
-  
+
   // Determine admin URL based on request origin
-  const origin = req.get('origin') || req.get('referer');
-  let adminUrl = process.env.ADMIN_URL || 'http://localhost:3000';
-  
+  const origin = req.get("origin") || req.get("referer");
+  let adminUrl = process.env.ADMIN_URL || "http://localhost:3000";
+
   if (origin) {
     // Extract base URL from origin
     try {
@@ -42,85 +41,85 @@ export async function inviteModeratorDirect(req: Request, res: Response) {
       // Use default if URL parsing fails
     }
   }
-  
+
   try {
     let user;
     let isNewUser = false;
     try {
       user = await auth.getUserByEmail(email);
     } catch (err: any) {
-      if (err.code === 'auth/user-not-found') {
+      if (err.code === "auth/user-not-found") {
         // Create user with random password
-        user = await auth.createUser({ email });
+        user = await auth.createUser({email});
         isNewUser = true;
       } else {
         throw err;
       }
     }
-    
+
     // Set custom claim
-    await auth.setCustomUserClaims(user.uid, { role: "moderator", permissions: filteredPermissions });
-    
+    await auth.setCustomUserClaims(user.uid, {role: "moderator", permissions: filteredPermissions});
+
     // Generate admin-specific password reset link for all users
-    let passwordLink = '';
+    let passwordLink = "";
     // Always generate a password link, even for existing users
     const actionCodeSettings = {
       url: `${adminUrl}/auth/reset-password?email=${encodeURIComponent(email)}`,
-      handleCodeInApp: true
+      handleCodeInApp: true,
     };
-    console.log('Generating password reset link with settings:', actionCodeSettings);
+    console.log("Generating password reset link with settings:", actionCodeSettings);
     try {
       passwordLink = await auth.generatePasswordResetLink(email, actionCodeSettings);
-      console.log('Generated password reset link:', passwordLink);
-      
-      if (!passwordLink || passwordLink.trim() === '') {
-        console.error('WARNING: Empty password reset link generated');
+      console.log("Generated password reset link:", passwordLink);
+
+      if (!passwordLink || passwordLink.trim() === "") {
+        console.error("WARNING: Empty password reset link generated");
         // Use a fallback link if Firebase doesn't generate one
         passwordLink = `${adminUrl}/auth/reset-password?email=${encodeURIComponent(email)}&oobCode=requestPasswordReset`;
-        console.log('Using fallback password reset link:', passwordLink);
+        console.log("Using fallback password reset link:", passwordLink);
       }
     } catch (error) {
-      console.error('Error generating password reset link:', error);
+      console.error("Error generating password reset link:", error);
       // Use a fallback link if Firebase fails
       passwordLink = `${adminUrl}/auth/reset-password?email=${encodeURIComponent(email)}&oobCode=requestPasswordReset`;
-      console.log('Using fallback password reset link after error:', passwordLink);
+      console.log("Using fallback password reset link after error:", passwordLink);
     }
-    
+
     // Store moderator access in Firestore
-    await firestore.collection('moderator_access').doc(user.uid).set({
+    await firestore.collection("moderator_access").doc(user.uid).set({
       email: user.email,
-      role: 'moderator',
+      role: "moderator",
       permissions: filteredPermissions,
       invitedAt: new Date(),
-      invitedBy: 'admin',
-      status: 'active',
-      adminAppAccess: true
-    }, { merge: true });
-    
+      invitedBy: "admin",
+      status: "active",
+      adminAppAccess: true,
+    }, {merge: true});
+
     // Skip email if manual mode is enabled
     if (manual) {
-      return res.status(200).json({ 
-        success: true, 
-        message: "Moderator access granted successfully. No email sent (manual mode)." 
+      return res.status(200).json({
+        success: true,
+        message: "Moderator access granted successfully. No email sent (manual mode).",
       });
     }
-    
+
     // Send invite email directly using nodemailer
     try {
       // Create permission labels
       const permissionLabels: Record<string, string> = {
-        manage_users: 'Manage Users',
-        edit_tournaments: 'Edit Tournaments',
-        view_reports: 'View Reports',
-        manage_announcements: 'Manage Announcements',
-        distribute_prizes: 'Distribute Prizes',
-        review_kyc: 'Review KYC Documents'
+        manage_users: "Manage Users",
+        edit_tournaments: "Edit Tournaments",
+        view_reports: "View Reports",
+        manage_announcements: "Manage Announcements",
+        distribute_prizes: "Distribute Prizes",
+        review_kyc: "Review KYC Documents",
       };
-      
+
       const permissionList = permissions
-        .map(p => permissionLabels[p as keyof typeof permissionLabels] || p)
-        .join(', ');
-      
+        .map((p) => permissionLabels[p as keyof typeof permissionLabels] || p)
+        .join(", ");
+
       // Create password section - always include it
       // Fix HTML escaping issues with backticks
       const passwordSection = `
@@ -132,7 +131,7 @@ export async function inviteModeratorDirect(req: Request, res: Response) {
           </div>
         </div>
       `;
-      
+
       // Create email content with password section first for visibility
       const emailContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
@@ -193,48 +192,48 @@ export async function inviteModeratorDirect(req: Request, res: Response) {
           </div>
         </div>
       `;
-      
+
       // Log email configuration
-      console.log('Direct email configuration:', {
+      console.log("Direct email configuration:", {
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT,
-        user: process.env.SMTP_USER?.substring(0, 3) + '***',
+        user: process.env.SMTP_USER?.substring(0, 3) + "***",
         from: process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER,
-        to: email
+        to: email,
       });
-      
+
       // Create transporter
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.zoho.com',
-        port: parseInt(process.env.SMTP_PORT || '465'),
-        secure: process.env.SMTP_SECURE === 'true',
+        host: process.env.SMTP_HOST || "smtp.zoho.com",
+        port: parseInt(process.env.SMTP_PORT || "465"),
+        secure: process.env.SMTP_SECURE === "true",
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
-        }
+        },
       });
-      
+
       // Send email
       await transporter.sendMail({
-        from: `"${process.env.EMAIL_FROM_NAME || 'Netwin Tournament'}" <${process.env.SMTP_USER}>`,
+        from: `"${process.env.EMAIL_FROM_NAME || "Netwin Tournament"}" <${process.env.SMTP_USER}>`,
         to: email,
-        subject: 'Moderator Access Granted - Netwin Tournament',
+        subject: "Moderator Access Granted - Netwin Tournament",
         html: emailContent,
       });
-      
-      return res.status(200).json({ 
-        success: true, 
-        message: "Moderator invited successfully and email sent directly" 
+
+      return res.status(200).json({
+        success: true,
+        message: "Moderator invited successfully and email sent directly",
       });
     } catch (mailErr: any) {
-      console.error('Failed to send direct moderator invite email:', mailErr);
-      return res.status(200).json({ 
-        success: true, 
+      console.error("Failed to send direct moderator invite email:", mailErr);
+      return res.status(200).json({
+        success: true,
         message: `Moderator invited, but failed to send email: ${mailErr.message}`,
-        emailError: true
+        emailError: true,
       });
     }
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || "Failed to invite moderator" });
+    return res.status(500).json({message: error.message || "Failed to invite moderator"});
   }
 }

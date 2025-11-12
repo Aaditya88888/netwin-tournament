@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer';
-import { config } from 'dotenv';
+import nodemailer from "nodemailer";
+import {config} from "dotenv";
 
 // Load environment variables
 config();
@@ -10,16 +10,16 @@ export class EmailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.zoho.com',
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: process.env.SMTP_SECURE === 'true',
+      host: process.env.SMTP_HOST || "smtp.zoho.com",
+      port: parseInt(process.env.SMTP_PORT || "465"),
+      secure: process.env.SMTP_SECURE === "true",
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
       tls: {
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+      },
     });
   }
 
@@ -27,10 +27,10 @@ export class EmailService {
   async verifyConnection(): Promise<boolean> {
     try {
       await this.transporter.verify();
-      console.log('✅ Email service is ready to send emails');
+      console.log("✅ Email service is ready to send emails");
       return true;
     } catch (error) {
-      console.error('❌ Email service verification failed:', error);
+      console.error("❌ Email service verification failed:", error);
       // Log detailed error information for debugging
       if (error instanceof Error) {
         console.error(`Error name: ${error.name}, Message: ${error.message}`);
@@ -64,7 +64,7 @@ export class EmailService {
               Verify Email Address
             </a>
           </div>
-          ` : ''}
+          ` : ""}
           
           <div style="margin: 25px 0;">
             <h3 style="color: #333;">What's Next?</h3>
@@ -100,7 +100,7 @@ export class EmailService {
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
       to: email,
-      subject: 'Welcome to Netwin Tournament! 🎮',
+      subject: "Welcome to Netwin Tournament! 🎮",
       html: emailContent,
     };
 
@@ -152,7 +152,7 @@ export class EmailService {
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
       to: email,
-      subject: 'Verify Your Email - Netwin Tournament',
+      subject: "Verify Your Email - Netwin Tournament",
       html: emailContent,
     };
 
@@ -209,7 +209,7 @@ export class EmailService {
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
       to: email,
-      subject: 'Password Reset - Netwin Tournament',
+      subject: "Password Reset - Netwin Tournament",
       html: emailContent,
     };
 
@@ -219,19 +219,19 @@ export class EmailService {
   // Send moderator invitation email with dynamic login URL
   async sendModeratorInviteEmail(email: string, permissions: string[], passwordLink?: string, adminUrl?: string): Promise<void> {
     const permissionLabels = {
-      manage_users: 'Manage Users',
-      edit_tournaments: 'Edit Tournaments',
-      view_reports: 'View Reports',
-      manage_announcements: 'Manage Announcements',
-      distribute_prizes: 'Distribute Prizes',
-      review_kyc: 'Review KYC Documents'
+      manage_users: "Manage Users",
+      edit_tournaments: "Edit Tournaments",
+      view_reports: "View Reports",
+      manage_announcements: "Manage Announcements",
+      distribute_prizes: "Distribute Prizes",
+      review_kyc: "Review KYC Documents",
     };
-    const permissionList = permissions.map(p => permissionLabels[p as keyof typeof permissionLabels] || p).join(', ');
-    
+    const permissionList = permissions.map((p) => permissionLabels[p as keyof typeof permissionLabels] || p).join(", ");
+
     // Use provided adminUrl or fallback to environment variable
-    const loginUrl = adminUrl || process.env.ADMIN_URL || 'http://localhost:3000';
-    
-    let passwordSection = '';
+    const loginUrl = adminUrl || process.env.ADMIN_URL || "http://localhost:3000";
+
+    let passwordSection = "";
     if (passwordLink) {
       passwordSection = `
         <div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -299,7 +299,7 @@ export class EmailService {
     const mailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
       to: email,
-      subject: 'Moderator Access Granted - Netwin Tournament',
+      subject: "Moderator Access Granted - Netwin Tournament",
       html: emailContent,
     };
 
@@ -346,10 +346,10 @@ export class EmailService {
   }
 
   // Send OTP verification email
-  async sendOtpEmail(email: string, otp: string, purpose: 'registration' | 'password-reset' = 'registration'): Promise<void> {
-    const purposeText = purpose === 'registration' ? 'account registration' : 'password reset';
-    const titleColor = purpose === 'registration' ? '#00ff88' : '#dc3545';
-    
+  async sendOtpEmail(email: string, otp: string, purpose: "registration" | "password-reset" = "registration"): Promise<void> {
+    const purposeText = purpose === "registration" ? "account registration" : "password reset";
+    const titleColor = purpose === "registration" ? "#00ff88" : "#dc3545";
+
     const emailContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
         <div style="background-color: ${titleColor}; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
@@ -411,8 +411,8 @@ export const emailService = new EmailService();
 
 // Legacy exports for backward compatibility
 export async function sendModeratorInviteEmail(email: string, permissions: string[], passwordLink?: string, adminUrl?: string): Promise<void> {
-  console.log('Sending moderator invite email to:', email);
-  console.log('Using EMAIL_FROM_ADDRESS:', process.env.EMAIL_FROM_ADDRESS);
+  console.log("Sending moderator invite email to:", email);
+  console.log("Using EMAIL_FROM_ADDRESS:", process.env.EMAIL_FROM_ADDRESS);
   return emailService.sendModeratorInviteEmail(email, permissions, passwordLink, adminUrl);
 }
 

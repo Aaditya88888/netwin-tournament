@@ -1,13 +1,13 @@
-import { config } from 'dotenv';
+import {config} from "dotenv";
 config();
 
-import { firestore } from '../firebase.js';
-import { v4 as uuidv4 } from 'uuid';
+import {firestore} from "../firebase.js";
+import {v4 as uuidv4} from "uuid";
 
 // Replace with your tournamentId and demo users
-const tournamentId = 'JVlOYUyRlmlXnld5UmZz';
+const tournamentId = "JVlOYUyRlmlXnld5UmZz";
 // Generate 20 demo users
-const demoUsers = Array.from({ length: 20 }, (_, i) => {
+const demoUsers = Array.from({length: 20}, (_, i) => {
   const n = i + 1;
   return {
     userId: `demoUser${n}`,
@@ -30,22 +30,22 @@ async function seedRegistrations() {
       kills: 0,
       position: null,
       registeredAt: new Date(),
-      status: 'registered',
+      status: "registered",
       teamMembers: [
         {
           gameId: user.gameId,
           isOwner: true,
           username: user.username,
           teamName: user.teamName,
-        }
+        },
       ],
       teammates: [],
-      totalPrizeEarned: 0
+      totalPrizeEarned: 0,
     };
-    await firestore.collection('tournament_registrations').doc(registrationId).set(registration);
+    await firestore.collection("tournament_registrations").doc(registrationId).set(registration);
     console.log(`Seeded registration for user ${user.displayName}`);
   }
-  console.log('Seeding complete.');
+  console.log("Seeding complete.");
 }
 
 seedRegistrations().catch(console.error);

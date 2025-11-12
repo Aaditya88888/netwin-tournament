@@ -1224,16 +1224,16 @@ export function registerRoutes(app) {
                 const userId = withdrawal.userId;
                 if (!userId)
                     return res.status(400).json({ message: 'Withdrawal missing userId' });
-                const userRef = db.collection('users').doc(userId);
+                const userRef = db.collection('wallets').doc(userId);
                 const userSnap = await userRef.get();
                 if (!userSnap.exists)
                     return res.status(404).json({ message: 'User not found' });
                 const user = userSnap.data();
                 // Update wallet balance (decrement)
-                const newBalance = (user.walletBalance || 0) - (withdrawal.amount || 0);
+                const newBalance = (wallets.withdrawableBalance || 0) - (withdrawal.amount || 0);
                 if (newBalance < 0)
                     return res.status(400).json({ message: 'Insufficient balance for withdrawal' });
-                await userRef.update({ walletBalance: newBalance, updatedAt: new Date() });
+                await userRef.update({ withdrawableBalance: newBalance, updatedAt: new Date() });
                 // Mark withdrawal as approved
                 await withdrawalRef.update({ status: 'APPROVED', verifiedAt: new Date(), verifiedBy: req.user?.email || 'admin', updatedAt: new Date() });
                 // Log transaction
