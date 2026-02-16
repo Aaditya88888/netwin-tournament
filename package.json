@@ -24,7 +24,7 @@
     "postinstall": "cd client && npm install && cd ../server && npm install"
   },
   "engines": {
-    "node": "18.x"
+    "node": "20.x"
   },
   "dependencies": {
     "@firebasegen/default-connector": "file:dataconnect-generated/js/default-connector",
