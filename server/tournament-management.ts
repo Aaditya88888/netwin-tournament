@@ -1,17 +1,19 @@
 // Tournament Management HTTP Functions
-import {onRequest} from "firebase-functions/v2/https";
-import {onCall} from "firebase-functions/v2/https";
-import {logger} from "firebase-functions";
-import {TournamentStatusManager} from "./tournament-scheduler.js";
-import {NotificationService} from "./notification-service.js";
-import {storage} from "./storage.js";
+import { onRequest } from "firebase-functions/v2/https";
+import { onCall } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
+import { TournamentStatusManager } from "./tournament-scheduler.js";
+import { NotificationService } from "./notification-service.js";
+import { storage } from "./storage.js";
 import express from "express";
 import cors from "cors";
 
 // Express app for HTTP endpoints
 const app = express();
-app.use(cors({origin: true}));
+app.use(cors({ origin: true }));
 app.use(express.json());
+
+export { app as managementApp };
 
 /**
  * Manual Tournament Management Endpoints
@@ -20,7 +22,7 @@ app.use(express.json());
 // Manually start a tournament
 app.post("/start-tournament/:tournamentId", async (req, res) => {
   try {
-    const {tournamentId} = req.params;
+    const { tournamentId } = req.params;
 
     logger.info(`Manual tournament start requested for ${tournamentId}`);
 
@@ -43,7 +45,7 @@ app.post("/start-tournament/:tournamentId", async (req, res) => {
 // Complete a tournament manually
 app.post("/complete-tournament/:tournamentId", async (req, res) => {
   try {
-    const {tournamentId} = req.params;
+    const { tournamentId } = req.params;
 
     logger.info(`Manual tournament completion requested for ${tournamentId}`);
 
@@ -114,7 +116,7 @@ app.post("/check-tournament-statuses", async (req, res) => {
 // Send test notification to specific user
 app.post("/send-test-notification", async (req, res) => {
   try {
-    const {userId, title, message, type = "system"} = req.body;
+    const { userId, title, message, type = "system" } = req.body;
 
     if (!userId || !title || !message) {
       return res.status(400).json({
@@ -150,8 +152,8 @@ app.post("/send-test-notification", async (req, res) => {
 // Send tournament-specific notification
 app.post("/send-tournament-notification/:tournamentId", async (req, res) => {
   try {
-    const {tournamentId} = req.params;
-    const {title, message, priority = "normal"} = req.body;
+    const { tournamentId } = req.params;
+    const { title, message, priority = "normal" } = req.body;
 
     if (!title || !message) {
       return res.status(400).json({
@@ -180,7 +182,7 @@ app.post("/send-tournament-notification/:tournamentId", async (req, res) => {
 // Get tournament status and scheduling info
 app.get("/tournament-status/:tournamentId", async (req, res) => {
   try {
-    const {tournamentId} = req.params;
+    const { tournamentId } = req.params;
 
     const tournament = await storage.getTournament(tournamentId);
     if (!tournament) {
@@ -239,11 +241,11 @@ app.get("/health", (req, res) => {
 // Prize distribution calculation and override
 app.get("/tournaments/:id/prize-distribution", async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
     const tournament = await storage.getTournament(id);
-    if (!tournament) return res.status(404).json({error: "Tournament not found"});
+    if (!tournament) return res.status(404).json({ error: "Tournament not found" });
     // Default rule: 40% to 1st, rest split, allow override
-    const rule = tournament.prizeDistributionRule || {firstPlacePercent: 40, squadSplit: tournament.matchType === "squad", adminOverride: false};
+    const rule = tournament.prizeDistributionRule || { firstPlacePercent: 40, squadSplit: tournament.matchType === "squad", adminOverride: false };
     let distribution;
     if (rule.adminOverride && rule.overrideDistribution) {
       distribution = rule.overrideDistribution;
@@ -254,45 +256,45 @@ app.get("/tournaments/:id/prize-distribution", async (req, res) => {
       if (rule.squadSplit) {
         // Example: split rest among N squads (for demo, 2nd and 3rd place)
         distribution = [
-          {position: 1, percentage: rule.firstPlacePercent, amount: first},
-          {position: 2, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.round(rest / 2)},
-          {position: 3, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.floor(rest / 2)},
+          { position: 1, percentage: rule.firstPlacePercent, amount: first },
+          { position: 2, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.round(rest / 2) },
+          { position: 3, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.floor(rest / 2) },
         ];
       } else {
         // All to 1st
         distribution = [
-          {position: 1, percentage: 100, amount: pool},
+          { position: 1, percentage: 100, amount: pool },
         ];
       }
     }
-    res.json({rule, distribution});
+    res.json({ rule, distribution });
   } catch (e) {
-    res.status(500).json({error: "Failed to calculate prize distribution"});
+    res.status(500).json({ error: "Failed to calculate prize distribution" });
   }
 });
 
 app.post("/tournaments/:id/prize-distribution", async (req, res) => {
   try {
-    const {id} = req.params;
-    const {rule, overrideDistribution} = req.body;
+    const { id } = req.params;
+    const { rule, overrideDistribution } = req.body;
     // Save override to tournament
     await storage.updateTournament(id, {
-      prizeDistributionRule: {...rule, adminOverride: true, overrideDistribution},
+      prizeDistributionRule: { ...rule, adminOverride: true, overrideDistribution },
     });
-    res.json({success: true});
+    res.json({ success: true });
   } catch (e) {
-    res.status(500).json({error: "Failed to save prize distribution override"});
+    res.status(500).json({ error: "Failed to save prize distribution override" });
   }
 });
 
 // Backend enforcement: payout prizes to winners
 app.post("/tournaments/:id/distribute-prizes", async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
     const tournament = await storage.getTournament(id);
-    if (!tournament) return res.status(404).json({error: "Tournament not found"});
+    if (!tournament) return res.status(404).json({ error: "Tournament not found" });
     // Get prize distribution rule
-    const rule = tournament.prizeDistributionRule || {firstPlacePercent: 40, squadSplit: tournament.matchType === "squad", adminOverride: false};
+    const rule = tournament.prizeDistributionRule || { firstPlacePercent: 40, squadSplit: tournament.matchType === "squad", adminOverride: false };
     let distribution;
     if (rule.adminOverride && rule.overrideDistribution) {
       distribution = rule.overrideDistribution;
@@ -302,13 +304,13 @@ app.post("/tournaments/:id/distribute-prizes", async (req, res) => {
       const rest = pool - first;
       if (rule.squadSplit) {
         distribution = [
-          {position: 1, percentage: rule.firstPlacePercent, amount: first},
-          {position: 2, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.round(rest / 2)},
-          {position: 3, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.floor(rest / 2)},
+          { position: 1, percentage: rule.firstPlacePercent, amount: first },
+          { position: 2, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.round(rest / 2) },
+          { position: 3, percentage: pool ? Math.round((rest / pool) * 100 / 2) : 0, amount: Math.floor(rest / 2) },
         ];
       } else {
         distribution = [
-          {position: 1, percentage: 100, amount: pool},
+          { position: 1, percentage: 100, amount: pool },
         ];
       }
     }
@@ -342,7 +344,7 @@ app.post("/tournaments/:id/distribute-prizes", async (req, res) => {
               `Tournament prize for position ${d.position} in ${tournamentTitle}`
             );
             // Mark result as paid
-            await storage.updateResult(winner.id, {reward: amountPerWinner, rewardStatus: "paid"});
+            await storage.updateResult(winner.id, { reward: amountPerWinner, rewardStatus: "paid" });
           } catch (err) {
             logger.error(`Failed to payout for result id ${winner.id}: ${err}`);
           }
@@ -351,9 +353,9 @@ app.post("/tournaments/:id/distribute-prizes", async (req, res) => {
         logger.warn(`Prize amount for position ${d.position} is zero or negative. No payout.`);
       }
     }
-    res.json({success: true, distribution});
+    res.json({ success: true, distribution });
   } catch (e) {
-    res.status(500).json({error: "Failed to distribute prizes"});
+    res.status(500).json({ error: "Failed to distribute prizes" });
   }
 });
 
@@ -377,7 +379,7 @@ export const startTournament = onCall({
   memory: "256MiB",
 }, async (request) => {
   try {
-    const {tournamentId} = request.data;
+    const { tournamentId } = request.data;
 
     if (!tournamentId) {
       throw new Error("Tournament ID is required");
@@ -410,7 +412,7 @@ export const completeTournament = onCall({
   memory: "256MiB",
 }, async (request) => {
   try {
-    const {tournamentId} = request.data;
+    const { tournamentId } = request.data;
 
     if (!tournamentId) {
       throw new Error("Tournament ID is required");

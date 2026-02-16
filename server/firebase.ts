@@ -1,6 +1,6 @@
-import {initializeApp, cert, getApps} from "firebase-admin/app";
-import {getFirestore} from "firebase-admin/firestore";
-import {getAuth} from "firebase-admin/auth";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 import * as dotenv from "dotenv";
 import * as path from "path";
 let functions: any = undefined;
@@ -14,15 +14,20 @@ try {
 const __dirname = path.resolve();
 
 // Load environment variables for local development
-dotenv.config({path: path.resolve(__dirname, "../.env")});
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 // Helper to get config from env or functions.config()
 function getConfig(key: string, fallback?: string) {
-  if (process.env.NODE_ENV === "development" || !functions) {
-    return process.env[key] || fallback;
+  // Always prefer process.env (Vercel/Local) over functions.config() (Firebase Cloud Functions)
+  if (process.env[key]) {
+    return process.env[key];
   }
-  // In production (Cloud Functions)
-  return functions.config().admin[key.toLowerCase()] || fallback;
+
+  if (functions && functions.config().admin) {
+    return functions.config().admin[key.toLowerCase()] || fallback;
+  }
+
+  return fallback;
 }
 
 const projectId = getConfig("FB_PROJECT_ID");
@@ -116,7 +121,7 @@ try {
   throw error; // Re-throw to fail fast
 }
 
-export {firestore, auth};
+export { firestore, auth };
 
 // Default export for CommonJS compatibility
-export default {firestore, auth};
+export default { firestore, auth };

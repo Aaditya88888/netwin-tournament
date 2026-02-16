@@ -1,0 +1,15 @@
+{
+    "version": 2,
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/api/index.ts"
+        }
+    ],
+    "crons": [
+        {
+            "path": "/api/check-tournament-statuses",
+            "schedule": "*/5 * * * *"
+        }
+    ]
+}

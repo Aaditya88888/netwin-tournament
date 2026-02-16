@@ -15,7 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { queryClient } from "@/lib/queryClient";
 
-import {Form,
+import {
+  Form,
   FormControl,
   FormDescription,
   FormField,
@@ -78,13 +79,19 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
     gameType: tournament?.gameType ?? "BGMI",
     matchType: tournament?.matchType ?? "Squad",
     map: tournament?.map ?? "Erangel",
-    startTime: tournament?.startTime ?? new Date(Date.now() + 86400000).toISOString().slice(0, 16),
+    startTime:
+      tournament?.startTime ??
+      new Date(Date.now() + 86400000).toISOString().slice(0, 16),
     entryFee: tournament?.entryFee ?? 99,
     prizePool: tournament?.prizePool ?? 10000,
     maxTeams: tournament?.maxTeams ?? 100,
     status: tournament?.status ?? "upcoming",
-    rules: tournament?.rules ?? "Standard tournament rules apply. Cheating will result in disqualification.",
-    bannerImage: tournament?.bannerImage ?? "https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
+    rules:
+      tournament?.rules ??
+      "Standard tournament rules apply. Cheating will result in disqualification.",
+    bannerImage:
+      tournament?.bannerImage ??
+      "https://images.unsplash.com/photo-1542751371-adc38448a05e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=400",
     firstPrize: tournament?.firstPrize ?? 5000,
     perKillReward: tournament?.perKillReward ?? 50,
   };
@@ -105,7 +112,7 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
       }
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['/tournaments'] });
+      await queryClient.invalidateQueries({ queryKey: ["/tournaments"] });
       toast({
         title: isEditing ? "Tournament Updated" : "Tournament Created",
         description: `The tournament has been successfully ${isEditing ? "updated" : "created"}.`,
@@ -157,17 +164,18 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
 
   // Auto-calculate firstPrize and perKillReward when entryFee or maxTeams change
   useEffect(() => {
-    const entryFee = Number(form.watch('entryFee'));
-    const maxTeams = Number(form.watch('maxTeams'));
+    const entryFee = Number(form.watch("entryFee"));
+    const maxTeams = Number(form.watch("maxTeams"));
     const totalRevenue = entryFee * maxTeams;
     const prizePool = totalRevenue * 0.8; // 80% of revenue is prize pool
     const firstPrize = Math.round(prizePool * 0.4); // 40% for 1st prize
     const totalKills = maxTeams * 4 - 4; // Example: squad mode, 4 players per team
-    const perKillReward = totalKills > 0 ? Math.floor((prizePool * 0.6) / totalKills) : 0;
-    form.setValue('prizePool', prizePool);
-    form.setValue('firstPrize', firstPrize);
-    form.setValue('perKillReward', perKillReward);
-  }, [form.watch('entryFee'), form.watch('maxTeams')]);
+    const perKillReward =
+      totalKills > 0 ? Math.floor((prizePool * 0.6) / totalKills) : 0;
+    form.setValue("prizePool", prizePool);
+    form.setValue("firstPrize", firstPrize);
+    form.setValue("perKillReward", perKillReward);
+  }, [form.watch("entryFee"), form.watch("maxTeams")]);
 
   return (
     <Card className="shadow-lg">
@@ -336,7 +344,9 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
                           min="0"
                           step="1"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value) || 0)
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -355,7 +365,9 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
                           min="0"
                           step="100"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value) || 0)
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -373,7 +385,9 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
                           type="number"
                           min="1"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value) || 1)}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value) || 1)
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -467,7 +481,9 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
                           type="number"
                           min="0"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value) || 0)
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -485,7 +501,9 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
                           type="number"
                           min="0"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value) || 0)
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -502,15 +520,12 @@ const MatchForm = ({ tournament, isEditing = false }: MatchFormProps) => {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isSaving || mutation.isPending}
-              >
+              <Button type="submit" disabled={isSaving || mutation.isPending}>
                 {isSaving || mutation.isPending
                   ? "Saving..."
                   : isEditing
-                  ? "Update Tournament"
-                  : "Create Tournament"}
+                    ? "Update Tournament"
+                    : "Create Tournament"}
               </Button>
             </div>
           </form>

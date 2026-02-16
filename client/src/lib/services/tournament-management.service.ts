@@ -1,10 +1,10 @@
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { apiRequest } from '@/lib/queryClient';
-import app from '@/lib/firebase/index';
+// import { getFunctions, httpsCallable } from 'firebase/functions';
+// import app from '@/lib/firebase/index';
 
 // Tournament Management Service for Client
 
-const functions = getFunctions(app);
+// const functions = getFunctions(app);
 
 export interface TournamentStatusInfo {
   tournament: {
@@ -49,7 +49,7 @@ export interface TournamentManagementResponse {
  * Provides client-side functions for managing tournaments
  */
 export class TournamentManagementService {
-  
+
   /**
    * Start a tournament manually (Admin only)
    */
@@ -57,11 +57,11 @@ export class TournamentManagementService {
     try {
       const response = await apiRequest('POST', `/tournament-management/start-tournament/${tournamentId}`);
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to start tournament');
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error starting tournament:', error);
@@ -76,11 +76,11 @@ export class TournamentManagementService {
     try {
       const response = await apiRequest('POST', `/tournament-management/complete-tournament/${tournamentId}`);
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to complete tournament');
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error completing tournament:', error);
@@ -95,11 +95,11 @@ export class TournamentManagementService {
     try {
       const response = await apiRequest('POST', '/tournament-management/check-tournament-statuses');
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to check tournament statuses');
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error checking tournament statuses:', error);
@@ -114,11 +114,11 @@ export class TournamentManagementService {
     try {
       const response = await apiRequest('GET', `/tournament-management/tournament-status/${tournamentId}`);
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to get tournament status');
       }
-      
+
       return result.data;
     } catch (error) {
       console.error('Error getting tournament status:', error);
@@ -142,11 +142,11 @@ export class TournamentManagementService {
         priority
       });
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to send tournament notification');
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error sending tournament notification:', error);
@@ -171,11 +171,11 @@ export class TournamentManagementService {
         type
       });
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to send test notification');
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error sending test notification:', error);
@@ -190,10 +190,10 @@ export class TournamentManagementService {
     if (timeUntilStart <= 0) {
       return 'Tournament should be live';
     }
-    
+
     const hours = Math.floor(timeUntilStart / (1000 * 60 * 60));
     const minutes = Math.floor((timeUntilStart % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (hours > 24) {
       const days = Math.floor(hours / 24);
       const remainingHours = hours % 24;
@@ -240,23 +240,23 @@ export class TournamentManagementService {
    */
   static getSchedulingRecommendations(statusInfo: TournamentStatusInfo): string[] {
     const recommendations: string[] = [];
-    
+
     if (!statusInfo.tournament.hasRoomCredentials) {
       recommendations.push('Add room ID and password before starting the tournament');
     }
-    
+
     if (statusInfo.registrations === 0) {
       recommendations.push('No users registered for this tournament');
     }
-    
+
     if (statusInfo.scheduling.timeUntilStart > 0 && statusInfo.scheduling.timeUntilStart < 300000) { // 5 minutes
       recommendations.push('Tournament will start automatically in less than 5 minutes');
     }
-    
+
     if (statusInfo.scheduling.shouldBeLive && statusInfo.tournament.status === 'scheduled') {
       recommendations.push('Tournament should be live but status is still upcoming - consider manual start');
     }
-    
+
     return recommendations;
   }
 }

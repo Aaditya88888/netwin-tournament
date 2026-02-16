@@ -1,1 +1,4 @@
-// This file has been intentionally removed. All backend logic is now in admin-functions and server.
+import { app } from '../server/index.js';
+
+// Vercel serverless entry point
+export default app;

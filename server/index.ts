@@ -1,12 +1,12 @@
 // Load environment variables first
 import dotenv from "dotenv";
 import path from "path";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const result = dotenv.config({path: path.resolve(__dirname, "../.env")});
+const result = dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 // Import Firebase initialization after env variables are loaded
 // Initialize Firebase for Cloud Functions or local development
@@ -16,12 +16,13 @@ import("./firebase.js").catch((error) => {
 });
 
 // Initialize email service
-import {emailService} from "./sendEmail.js";
+import { emailService } from "./sendEmail.js";
 
-import express, {type Request, Response, NextFunction} from "express";
-import {registerRoutes} from "./routes.js";
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes.js";
 import cors from "cors";
-import {addAppCheckHeaders} from "./middleware/appcheck.js";
+import { addAppCheckHeaders } from "./middleware/appcheck.js";
+import { managementApp } from "./tournament-management.js";
 
 const app = express();
 
@@ -39,6 +40,9 @@ app.use(cors(corsOptions));
 
 // Add App Check headers middleware globally
 app.use(addAppCheckHeaders);
+
+// Mount tournament management routes (for Vercel/Monolith support)
+app.use('/api/tournament-management', managementApp);
 
 // Request logging middleware (production-ready)
 app.use((req, res, next) => {
@@ -122,7 +126,7 @@ initializeApp().then(() => {
 
 // Health check endpoint for Cloud Run
 app.get("/_health", (_req, res) => {
-  res.status(200).json({status: "healthy", timestamp: new Date().toISOString()});
+  res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
 // Root endpoint
@@ -138,7 +142,7 @@ app.get("/", (_req, res) => {
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
-  res.status(status).json({message});
+  res.status(status).json({ message });
   throw err;
 });
 
@@ -152,16 +156,17 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Firebase Cloud Function export
-import {onRequest} from "firebase-functions/v2/https";
+// import {onRequest} from "firebase-functions/v2/https";
 
 // Export as Firebase Cloud Function for hosting integration (v2)
-export const api = onRequest({
-  region: "us-central1",
-  timeoutSeconds: 540,
-  memory: "2GiB",
-}, app);
+// export const api = onRequest({
+//   region: "us-central1",
+//   timeoutSeconds: 540,
+//   memory: "2GiB",
+// }, app);
 
 // Export tournament management functions
+/*
 export {
   tournamentStatusChecker,
   startTournamentManually,
@@ -172,9 +177,10 @@ export {
   startTournament,
   completeTournament,
 } from "./tournament-management.js";
+*/
 
-// Export the app for Firebase Functions deployment
-export {app};
+// Export the app for Firebase Functions deployment AND Vercel
+export { app };
 
 // For local development only - not for Cloud Functions
 const isLocalDev = process.env.NODE_ENV === "development";
@@ -195,5 +201,5 @@ if (isLocalDev) {
     console.log(`📝 API docs at http://${host}:${port}/api-docs`);
   });
 } else {
-  console.log("Running in production mode or as Cloud Function");
+  console.log("Running in production mode or as Cloud Function/Serverless");
 }
