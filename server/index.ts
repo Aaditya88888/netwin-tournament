@@ -44,6 +44,25 @@ app.use(addAppCheckHeaders);
 // Mount tournament management routes (for Vercel/Monolith support)
 app.use('/api/tournament-management', managementApp);
 
+// Debug/Health Endpoint (Critical for Vercel troubleshooting)
+app.get('/api/health', (req, res) => {
+  const envCheck = {
+    NODE_ENV: process.env.NODE_ENV,
+    FB_PROJECT_ID: process.env.FB_PROJECT_ID ? 'Set' : 'Missing',
+    FB_CLIENT_EMAIL: process.env.FB_CLIENT_EMAIL ? 'Set' : 'Missing',
+    FB_PRIVATE_KEY: process.env.FB_PRIVATE_KEY
+      ? `Set (Length: ${process.env.FB_PRIVATE_KEY.length}, Starts with: ${process.env.FB_PRIVATE_KEY.substring(0, 10)}...)`
+      : 'Missing',
+  };
+
+  res.json({
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    environment: envCheck,
+    message: 'Backend is running. If you see this, Vercel is working.'
+  });
+});
+
 // Request logging middleware (production-ready)
 app.use((req, res, next) => {
   // Only log errors and important requests in production
