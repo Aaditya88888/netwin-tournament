@@ -13,7 +13,7 @@
     "crons": [
         {
             "path": "/api/check-tournament-statuses",
-            "schedule": "*/5 * * * *"
+            "schedule": "0 0 * * *"
         }
     ]
 }
